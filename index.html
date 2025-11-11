@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>MEGA SURVIE - Statut joueurs</title>
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="https://i.pinimg.com/736x/41/76/49/4176492a41d161daaa3cb37d88a2dc50.jpg">
+
+<link href="https://fonts.cdnfonts.com/css/minecraft-4" rel="stylesheet">
+
+<style>
+  body {
+    margin: 0;
+    font-family: 'Minecraft', sans-serif;
+    background: url('https://i.pinimg.com/736x/79/de/a5/79dea5553849913f1ff6acd2e7b9c24a.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #eee;
+    text-align: center;
+  }
+
+  .overlay {
+    background: rgba(0, 0, 0, 0.55);
+    min-height: 100vh;
+    padding: 50px 20px;
+  }
+
+  #logo {
+    max-width: 300px;
+    width: 60%;
+    margin-bottom: 30px;
+  }
+
+  input, button {
+    font-family: 'Minecraft', sans-serif;
+    padding: 10px 15px;
+    margin: 8px;
+    border: 3px solid #000;
+    font-size: 18px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  input {
+    background: #3c3c3c;
+    color: #fff;
+    width: 200px;
+  }
+
+  button.online {
+    background: linear-gradient(#00aa00, #007700);
+    color: #fff;
+    box-shadow: 0 4px #003300;
+  }
+
+  button.offline {
+    background: linear-gradient(#aa0000, #770000);
+    color: #fff;
+    box-shadow: 0 4px #330000;
+  }
+
+  button:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+  }
+
+  #players {
+    background: rgba(30, 20, 10, 0.8);
+    border: 4px solid #000;
+    border-radius: 8px;
+    display: inline-block;
+    margin-top: 40px;
+    padding: 20px 40px;
+    box-shadow: 0 0 20px #000;
+  }
+
+  #players h3 {
+    color: #ffff55;
+    text-shadow: 2px 2px #000;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    font-size: 20px;
+    color: #55ff55;
+    margin: 5px 0;
+    text-shadow: 1px 1px #000;
+  }
+
+  li::before {
+    content: "⬤ ";
+    color: #55ff55;
+  }
+</style>
+</head>
+<body>
+<div class="overlay">
+    <!-- Logo texte à la place de l'image -->
+    <h1 id="logo-text">🌍 Statut des joueurs Minecraft</h1>
+    <div>
+      <input id="username" placeholder="Pseudo">
+      <input id="secret" placeholder="Code secret" type="password">
+    </div>
+
+    <div>
+      <button id="btnLogin" class="online">🟢 En ligne</button>
+      <button id="btnLogout" class="offline">🔴 Hors ligne</button>
+    </div>
+
+    <div id="players">
+      <h3>Joueurs connectés :</h3>
+      <ul id="onlineList"></ul>
+    </div>
+  </div>
+
+<script>
+const API_BASE = "";
+let currentToken = localStorage.getItem("mc_token") || null;
+let currentUser = localStorage.getItem("mc_user") || null;
+
+document.getElementById("btnLogin").onclick = async () => {
+  const username = document.getElementById("username").value.trim();
+  const secret = document.getElementById("secret").value.trim();
+  if (!username || !secret) return alert("Entrer pseudo et code secret");
+  try {
+    const resp = await fetch(API_BASE + "/api/login", {
+      method: "POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ username, secret })
+    });
+    const j = await resp.json();
+    if (!j.ok) return alert("Erreur: " + (j.msg||""));
+    currentToken = j.token;
+    currentUser = j.username;
+    localStorage.setItem("mc_token", currentToken);
+    localStorage.setItem("mc_user", currentUser);
+    alert("Connecté en tant que " + currentUser);
+    refresh();
+  } catch (e) { alert("Erreur réseau"); }
+};
+
+document.getElementById("btnLogout").onclick = async () => {
+  if (!currentToken) { alert("Tu n'es pas connecté"); return; }
+  try {
+    const resp = await fetch(API_BASE + "/api/logout", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ token: currentToken })
+    });
+    const j = await resp.json();
+    if (!j.ok) return alert("Erreur logout");
+    localStorage.removeItem("mc_token");
+    localStorage.removeItem("mc_user");
+    currentToken = null; currentUser = null;
+    alert("Déconnecté");
+    refresh();
+  } catch(e){ alert("Erreur réseau"); }
+};
+
+async function refresh() {
+  try {
+    const resp = await fetch(API_BASE + "/api/status");
+    const j = await resp.json();
+    if (!j.ok) return;
+    const ul = document.getElementById("onlineList");
+    ul.innerHTML = "";
+    (j.online || []).forEach(name => {
+      const li = document.createElement("li");
+      li.textContent = name + (name===currentUser? " (toi)":"");
+      ul.appendChild(li);
+    });
+  } catch(e) { console.log("err", e); }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
